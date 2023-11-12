@@ -1,12 +1,29 @@
 import './ExploreContainer.css';
+import { IonItem, IonLabel, IonList } from '@ionic/react';
 
 interface ContainerProps { }
 
 const ExploreContainer: React.FC<ContainerProps> = () => {
   return (
     <div id="container">
-      <strong>Ready to create an app?</strong>
-      <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
+
+    <IonList>
+      <IonItem>
+        <IonLabel>Pokémon Yellow</IonLabel>
+      </IonItem>
+      <IonItem>
+        <IonLabel>Mega Man X</IonLabel>
+      </IonItem>
+      <IonItem>
+        <IonLabel>The Legend of Zelda</IonLabel>
+      </IonItem>
+      <IonItem>
+        <IonLabel>Pac-Man</IonLabel>
+      </IonItem>
+      <IonItem>
+        <IonLabel>Super Mario World</IonLabel>
+      </IonItem>
+    </IonList>
     </div>
   );
 };
