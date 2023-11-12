@@ -1,0 +1,7 @@
+{
+  "name": "book-search-ionic",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}
