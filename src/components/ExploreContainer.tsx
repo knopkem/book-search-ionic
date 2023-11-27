@@ -1,31 +1,86 @@
 import './ExploreContainer.css';
-import { IonItem, IonLabel, IonList } from '@ionic/react';
+import { IonItem, IonLabel, IonList, IonSearchbar, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent } from '@ionic/react';
+import { TableGrid } from 'ionic-react-tablegrid';
+import { useState } from 'react';
 
 interface ContainerProps { }
 
 const ExploreContainer: React.FC<ContainerProps> = () => {
+  const [people, setPeople] = useState([{name:"Larry", age: 23, color: "Yellow"},{name:"Moe", age: 24, color: "Blue"},{name:"Curley", age: 25, color: "White"}]);
+
+
   return (
     <div id="container">
+<IonSearchbar></IonSearchbar>
+<IonList>
+<IonCard>
+      <IonCardHeader>
+        <IonCardTitle>Card Title</IonCardTitle>
+        <IonCardSubtitle>Card Subtitle</IonCardSubtitle>
+      </IonCardHeader>
 
-    <IonList>
-      <IonItem>
-        <IonLabel>Pokémon Yellow</IonLabel>
-      </IonItem>
-      <IonItem>
-        <IonLabel>Mega Man X</IonLabel>
-      </IonItem>
-      <IonItem>
-        <IonLabel>The Legend of Zelda</IonLabel>
-      </IonItem>
-      <IonItem>
-        <IonLabel>Pac-Man</IonLabel>
-      </IonItem>
-      <IonItem>
-        <IonLabel>Super Mario World</IonLabel>
-      </IonItem>
+      <IonCardContent>Here's a small text description for the card content. Nothing more, nothing less.</IonCardContent>
+    </IonCard>
+    <IonCard>
+      <IonCardHeader>
+        <IonCardTitle>Card Title</IonCardTitle>
+        <IonCardSubtitle>Card Subtitle</IonCardSubtitle>
+      </IonCardHeader>
+
+      <IonCardContent>Here's a small text description for the card content. Nothing more, nothing less.</IonCardContent>
+    </IonCard>
+    <IonCard>
+      <IonCardHeader>
+        <IonCardTitle>Card Title</IonCardTitle>
+        <IonCardSubtitle>Card Subtitle</IonCardSubtitle>
+      </IonCardHeader>
+
+      <IonCardContent>Here's a small text description for the card content. Nothing more, nothing less.</IonCardContent>
+    </IonCard>
+    <IonCard>
+      <IonCardHeader>
+        <IonCardTitle>Card Title</IonCardTitle>
+        <IonCardSubtitle>Card Subtitle</IonCardSubtitle>
+      </IonCardHeader>
+
+      <IonCardContent>Here's a small text description for the card content. Nothing more, nothing less.</IonCardContent>
+    </IonCard>
+    <IonCard>
+      <IonCardHeader>
+        <IonCardTitle>Card Title</IonCardTitle>
+        <IonCardSubtitle>Card Subtitle</IonCardSubtitle>
+      </IonCardHeader>
+
+      <IonCardContent>Here's a small text description for the card content. Nothing more, nothing less.</IonCardContent>
+    </IonCard>
+    <IonCard>
+      <IonCardHeader>
+        <IonCardTitle>Card Title</IonCardTitle>
+        <IonCardSubtitle>Card Subtitle</IonCardSubtitle>
+      </IonCardHeader>
+
+      <IonCardContent>Here's a small text description for the card content. Nothing more, nothing less.</IonCardContent>
+    </IonCard>
+    <IonCard>
+      <IonCardHeader>
+        <IonCardTitle>Card Title</IonCardTitle>
+        <IonCardSubtitle>Card Subtitle</IonCardSubtitle>
+      </IonCardHeader>
+
+      <IonCardContent>Here's a small text description for the card content. Nothing more, nothing less.</IonCardContent>
+    </IonCard>
+    <IonCard>
+      <IonCardHeader>
+        <IonCardTitle>Card Title</IonCardTitle>
+        <IonCardSubtitle>Card Subtitle</IonCardSubtitle>
+      </IonCardHeader>
+
+      <IonCardContent>Here's a small text description for the card content. Nothing more, nothing less.</IonCardContent>
+    </IonCard>
+
     </IonList>
     </div>
-  );
+  )
 };
 
 export default ExploreContainer;
