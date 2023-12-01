@@ -38,6 +38,7 @@ const Home: React.FC = () =>
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
+      <div id="container">
       <IonList>
         {filteredBooks.map((b) => (
           <IonCard>
@@ -52,6 +53,7 @@ const Home: React.FC = () =>
         </IonCard>
         ))}
       </IonList>
+      </div>
       </IonContent>
     </IonPage>
   );
