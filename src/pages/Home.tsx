@@ -10,12 +10,23 @@ const Home: React.FC = () =>
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
 
   useEffect(() => {
-    console.log('refresh');
     const store = new Storage();
-    store.create().then(() => {
-      store.get("books").then((value: Book[]) => {
-        setBooks(value);
-        setFilteredBooks(value);
+    fetch('http://localhost:3000/books')
+    .then(response => response.json())
+    .then(data => {
+      store.create().then(() => {
+        data.shift();
+        console.log('storing', data);
+        store.set('books', data);
+        setBooks(data);
+        setFilteredBooks(data);
+      });
+    }).catch((e) => {
+      store.create().then(() => {
+        store.get("books").then((value: Book[]) => {
+          setBooks(value);
+          setFilteredBooks(value);
+        });
       });
     });
   }, [setBooks, setFilteredBooks]);
@@ -24,7 +35,7 @@ const Home: React.FC = () =>
     let query = '';
     const target = ev.target as HTMLIonSearchbarElement;
     if (target) query = target.value!.toLowerCase();
-    const updatedBooks = books.filter((d) => (d.author.toLowerCase().includes(query)) || (d.title.toLowerCase().includes(query)));
+    const updatedBooks = books.filter((d) => (d.description.toLowerCase().includes(query)) || (d.name.toLowerCase().includes(query)));
     console.log(updatedBooks.length)
     setFilteredBooks(updatedBooks);
 
@@ -40,15 +51,15 @@ const Home: React.FC = () =>
       <IonContent fullscreen>
       <div id="container">
       <IonList>
-        {filteredBooks.map((b) => (
-          <IonCard>
+        {filteredBooks.map((b, i) => (
+          <IonCard key={i}>
           <IonCardHeader>
-            <IonCardTitle>{b.title}</IonCardTitle>
-            <IonCardSubtitle>{b.author}</IonCardSubtitle>
+            <IonCardTitle>{b.name}</IonCardTitle>
+            <IonCardSubtitle>{b.description}</IonCardSubtitle>
           </IonCardHeader>
 
           <IonCardContent>
-            {b.description}
+            {b.remarks}
           </IonCardContent>
         </IonCard>
         ))}

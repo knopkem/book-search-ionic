@@ -21,21 +21,10 @@ import "@ionic/react/css/display.css";
 
 /* Theme variables */
 import "./theme/variables.css";
-import { Storage } from "@ionic/storage";
-import { useEffect } from "react";
-import { Book } from "./book";
 
 setupIonicReact();
 
 const App: React.FC = () => {
-  useEffect(() => {
-    const store = new Storage();
-    const books: Book[] = [{title: 'Never Ending Story', author: 'Michael Ende', description: 'Book about a boy'}, {title: 'The bible', author: 'God', description: 'Book about religious beliefs'}];
-    store.create().then(() => {
-      store.set('books', books);
-    });
-  }, []);
-
   return (
     <IonApp>
       <IonReactRouter>

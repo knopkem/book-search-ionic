@@ -1,5 +1,5 @@
 export class Book {
-    title: string = '';
-    author: string = '';
+    name: string = '';
     description: string = '';
+    remarks: string = '';
   }
