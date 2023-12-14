@@ -1,5 +1,6 @@
 import {
   IonButton,
+  IonButtons,
   IonCard,
   IonCardContent,
   IonCardHeader,
@@ -9,22 +10,34 @@ import {
   IonContent,
   IonGrid,
   IonHeader,
+  IonInput,
+  IonItem,
   IonList,
+  IonModal,
   IonPage,
   IonRow,
   IonSearchbar,
+  IonTitle,
   IonToolbar,
 } from "@ionic/react";
 import "./Home.css";
-import { useState, useEffect, HtmlHTMLAttributes } from "react";
+import { useState, useEffect, HtmlHTMLAttributes, useRef } from "react";
 import { Book } from "../book";
 import { Storage } from "@ionic/storage";
 import { IonIcon } from "@ionic/react";
 import { settings } from "ionicons/icons";
+import { OverlayEventDetail } from "@ionic/react/dist/types/components/react-component-lib/interfaces";
 
 const Home: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
+
+  const [url, setUrl] = useState<Book[]>([]);
+  const [token, setToken] = useState<Book[]>([]);
+
+  const modal = useRef<HTMLIonModalElement>(null);
+  const input = useRef<HTMLIonInputElement>(null);
+  const input2 = useRef<HTMLIonInputElement>(null);
 
   useEffect(() => {
     const store = new Storage();
@@ -61,12 +74,22 @@ const Home: React.FC = () => {
         d.description.toLowerCase().includes(query) ||
         d.name.toLowerCase().includes(query)
     );
-    console.log(updatedBooks.length);
     setFilteredBooks(updatedBooks);
   };
 
-  const onClick = (ev: React.MouseEvent<HTMLIonButtonElement, MouseEvent>) => {
-    console.log(ev);
+  function confirm() {
+    modal.current?.dismiss(
+      { url: input.current?.value, token: input2.current?.value },
+      "confirm"
+    );
+  }
+
+  function onWillDismiss(ev: CustomEvent<OverlayEventDetail>) {
+    if (ev.detail.role === "confirm") {
+      const { url, token } = ev.detail.data;
+      setUrl(url);
+      setToken(token);
+    }
   }
 
   return (
@@ -83,9 +106,50 @@ const Home: React.FC = () => {
               </IonToolbar>
             </IonCol>
             <IonCol size="auto">
-              <IonButton onClick={(ev) => onClick(ev)} fill="clear">
-              <IonIcon icon={settings} size="large" color="primary"></IonIcon>
+              <IonButton fill="clear" id="open-modal" expand="block">
+                <IonIcon icon={settings} size="large" color="primary"></IonIcon>
               </IonButton>
+              <IonModal
+                ref={modal}
+                trigger="open-modal"
+                onWillDismiss={(ev) => onWillDismiss(ev)}
+              >
+                <IonHeader>
+                  <IonToolbar>
+                    <IonButtons slot="start">
+                      <IonButton onClick={() => modal.current?.dismiss()}>
+                        Cancel
+                      </IonButton>
+                    </IonButtons>
+                    <IonTitle>Settings</IonTitle>
+                    <IonButtons slot="end">
+                      <IonButton strong={true} onClick={() => confirm()}>
+                        Confirm
+                      </IonButton>
+                    </IonButtons>
+                  </IonToolbar>
+                </IonHeader>
+                <IonContent className="ion-padding">
+                  <IonItem>
+                    <IonInput
+                      label="Enter the url to cloud server"
+                      labelPlacement="stacked"
+                      ref={input}
+                      type="text"
+                      placeholder="Cloud URL"
+                    />
+                  </IonItem>
+                  <IonItem>
+                    <IonInput
+                      label="Enter the access token"
+                      labelPlacement="stacked"
+                      ref={input2}
+                      type="text"
+                      placeholder="tokem"
+                    />
+                  </IonItem>
+                </IonContent>
+              </IonModal>
             </IonCol>
           </IonRow>
         </IonGrid>
