@@ -32,38 +32,55 @@ const Home: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
 
-  const [url, setUrl] = useState<Book[]>([]);
-  const [token, setToken] = useState<Book[]>([]);
-
+  const [cloud, setCloud] = useState({ url: 'http://localhost:3000', token: '12345' });
+  
   const modal = useRef<HTMLIonModalElement>(null);
   const input = useRef<HTMLIonInputElement>(null);
   const input2 = useRef<HTMLIonInputElement>(null);
+  const store = new Storage();
 
   useEffect(() => {
-    const store = new Storage();
-    fetch("http://localhost:3000/books")
-      .then((response) => response.json())
-      .then((data) => {
-        store.create().then(() => {
+    console.log('fetching cloud credentials from local storage');
+    store.create().then(() => {
+      store.get("cloud").then((value) => {
+        if (!value) return;
+        setCloud(value);
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+      const {url, token} = cloud;
+      if (!url || !token) return;
+      console.log('fetching books from:', url);      
+      fetch(url + "/books",{
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      })      
+        .then((response) => response.json())
+        .then((data) => {
           if (data) {
             data.shift();
             store.set("books", data);
             setBooks(data);
             setFilteredBooks(data);
           }
-        });
-      })
-      .catch((e) => {
-        store.create().then(() => {
-          store.get("books").then((value: Book[]) => {
-            if (value) {
-              setBooks(value);
-              setFilteredBooks(value);
-            }
+        })
+        .catch((e) => {
+          console.log('fetching books from local storage');
+          store.create().then(() => {
+            store.get("books").then((value: Book[]) => {
+              if (value) {
+                setBooks(value);
+                setFilteredBooks(value);
+              }
+            });
           });
         });
-      });
-  }, [setBooks, setFilteredBooks]);
+  }, [setBooks, setFilteredBooks, cloud]);
 
   const handleInput = (ev: Event) => {
     let query = "";
@@ -86,9 +103,11 @@ const Home: React.FC = () => {
 
   function onWillDismiss(ev: CustomEvent<OverlayEventDetail>) {
     if (ev.detail.role === "confirm") {
-      const { url, token } = ev.detail.data;
-      setUrl(url);
-      setToken(token);
+      const store = new Storage();
+      store.create().then(() => {
+        store.set("cloud", ev.detail.data);
+        setCloud(ev.detail.data);
+      });
     }
   }
 
@@ -137,6 +156,7 @@ const Home: React.FC = () => {
                       ref={input}
                       type="text"
                       placeholder="Cloud URL"
+                      value={cloud.url}
                     />
                   </IonItem>
                   <IonItem>
@@ -145,7 +165,8 @@ const Home: React.FC = () => {
                       labelPlacement="stacked"
                       ref={input2}
                       type="text"
-                      placeholder="tokem"
+                      placeholder="token"
+                      value={cloud.token}
                     />
                   </IonItem>
                 </IonContent>
