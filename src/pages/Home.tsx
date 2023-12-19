@@ -17,6 +17,7 @@ import {
   IonPage,
   IonRow,
   IonSearchbar,
+  IonText,
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
@@ -33,6 +34,7 @@ const Home: React.FC = () => {
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
 
   const [cloud, setCloud] = useState({ url: 'http://localhost:3000', token: '12345' });
+  const [syncMessage, setSyncMessage] = useState('')
   
   const modal = useRef<HTMLIonModalElement>(null);
   const input = useRef<HTMLIonInputElement>(null);
@@ -46,6 +48,9 @@ const Home: React.FC = () => {
         if (!value) return;
         setCloud(value);
       });
+      store.get('sync').then((value) => {
+        setSyncMessage(`last synchronization: ${value}`);
+      })
     });
   }, []);
 
@@ -63,10 +68,13 @@ const Home: React.FC = () => {
         .then((response) => response.json())
         .then((data) => {
           if (data) {
-            data.shift();
-            store.set("books", data);
             setBooks(data);
             setFilteredBooks(data);
+            store.create().then(() => {
+              data.shift();
+              store.set("books", data);
+              store.set("sync", new Date().toLocaleDateString('de-DE'));
+            });
           }
         })
         .catch((e) => {
@@ -80,7 +88,7 @@ const Home: React.FC = () => {
             });
           });
         });
-  }, [setBooks, setFilteredBooks, cloud]);
+  }, [setBooks, setFilteredBooks, cloud, setSyncMessage]);
 
   const handleInput = (ev: Event) => {
     let query = "";
@@ -168,6 +176,9 @@ const Home: React.FC = () => {
                       placeholder="token"
                       value={cloud.token}
                     />
+                  </IonItem>
+                  <IonItem>
+                    <IonText>{syncMessage}</IonText>
                   </IonItem>
                 </IonContent>
               </IonModal>
