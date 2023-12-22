@@ -1,4 +1,5 @@
 import {
+  IonAlert,
   IonButton,
   IonButtons,
   IonCard,
@@ -28,66 +29,78 @@ import { Storage } from "@ionic/storage";
 import { IonIcon } from "@ionic/react";
 import { settings } from "ionicons/icons";
 import { OverlayEventDetail } from "@ionic/react/dist/types/components/react-component-lib/interfaces";
+import { App } from "@capacitor/app";
 
 const Home: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
 
-  const [cloud, setCloud] = useState({ url: 'http://localhost:3000', token: '12345' });
-  const [syncMessage, setSyncMessage] = useState('')
-  
+  const [cloud, setCloud] = useState({
+    url: "http://localhost:3000",
+    token: "12345",
+  });
+  const [syncMessage, setSyncMessage] = useState("");
+
+  const [showBackAlert, setShowBackAlert] = useState(false);
+
+  document.addEventListener("ionBackButton", (ev: any) => {
+    ev.detail.register(-1, () => {
+      setShowBackAlert(true);
+    });
+  });
+
   const modal = useRef<HTMLIonModalElement>(null);
   const input = useRef<HTMLIonInputElement>(null);
   const input2 = useRef<HTMLIonInputElement>(null);
   const store = new Storage();
 
   useEffect(() => {
-    console.log('fetching cloud credentials from local storage');
+    console.log("fetching cloud credentials from local storage");
     store.create().then(() => {
       store.get("cloud").then((value) => {
         if (!value) return;
         setCloud(value);
       });
-      store.get('sync').then((value) => {
+      store.get("sync").then((value) => {
         setSyncMessage(`last synchronization: ${value}`);
-      })
+      });
     });
   }, []);
 
   useEffect(() => {
-      const {url, token} = cloud;
-      if (!url || !token) return;
-      console.log('fetching books from:', url);      
-      fetch(url + "/books",{
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      })      
-        .then((response) => response.json())
-        .then((data) => {
-          if (data) {
-            setBooks(data);
-            setFilteredBooks(data);
-            store.create().then(() => {
-              data.shift();
-              store.set("books", data);
-              store.set("sync", new Date().toLocaleDateString('de-DE'));
-            });
-          }
-        })
-        .catch((e) => {
-          console.log('fetching books from local storage');
+    const { url, token } = cloud;
+    if (!url || !token) return;
+    console.log("fetching books from:", url);
+    fetch(url + "/books", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data) {
+          setBooks(data);
+          setFilteredBooks(data);
           store.create().then(() => {
-            store.get("books").then((value: Book[]) => {
-              if (value) {
-                setBooks(value);
-                setFilteredBooks(value);
-              }
-            });
+            data.shift();
+            store.set("books", data);
+            store.set("sync", new Date().toLocaleDateString("de-DE"));
+          });
+        }
+      })
+      .catch((e) => {
+        console.log("fetching books from local storage");
+        store.create().then(() => {
+          store.get("books").then((value: Book[]) => {
+            if (value) {
+              setBooks(value);
+              setFilteredBooks(value);
+            }
           });
         });
+      });
   }, [setBooks, setFilteredBooks, cloud, setSyncMessage]);
 
   const handleInput = (ev: Event) => {
@@ -121,6 +134,26 @@ const Home: React.FC = () => {
 
   return (
     <IonPage>
+      <IonAlert
+        isOpen={showBackAlert}
+        header={"Please Confirm!"}
+        message={"Do you want to exit the app?"}
+        buttons={[
+          {
+            text: "No",
+            role: "cancel",
+            cssClass: "secondary",
+            handler: () => {},
+          },
+          {
+            text: "Yes",
+            handler: () => {
+              App.exitApp();
+            },
+          },
+        ]}
+        onDidDismiss={() => setShowBackAlert(false)}
+      />
       <IonHeader>
         <IonGrid>
           <IonRow>
