@@ -32,6 +32,7 @@ import { OverlayEventDetail } from "@ionic/react/dist/types/components/react-com
 import { App } from "@capacitor/app";
 
 const Home: React.FC = () => {
+  const [version] = useState("6");
   const [books, setBooks] = useState<Book[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
 
@@ -212,6 +213,9 @@ const Home: React.FC = () => {
                   </IonItem>
                   <IonItem>
                     <IonText>{syncMessage}</IonText>
+                  </IonItem>
+                  <IonItem>
+                    <IonText>Version: V{version}</IonText>
                   </IonItem>
                 </IonContent>
               </IonModal>
