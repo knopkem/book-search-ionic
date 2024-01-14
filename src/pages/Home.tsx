@@ -219,7 +219,7 @@ const Home: React.FC = () => {
           </IonRow>
         </IonGrid>
       </IonHeader>
-      <IonContent fullscreen>
+      <IonContent fullscreen={false}>
           <IonList>
             {filteredBooks.map((b, i) => (
               <IonCard key={i}>
