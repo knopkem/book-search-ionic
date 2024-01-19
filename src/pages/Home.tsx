@@ -20,10 +20,10 @@ import {
   IonSearchbar,
   IonText,
   IonTitle,
+  IonToast,
   IonToolbar,
 } from "@ionic/react";
-import "./Home.css";
-import { useState, useEffect, HtmlHTMLAttributes, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Book } from "../book";
 import { Storage } from "@ionic/storage";
 import { IonIcon } from "@ionic/react";
@@ -32,7 +32,7 @@ import { OverlayEventDetail } from "@ionic/react/dist/types/components/react-com
 import { App } from "@capacitor/app";
 
 const Home: React.FC = () => {
-  const [version] = useState("6");
+  const [version] = useState("7");
   const [books, setBooks] = useState<Book[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
 
@@ -41,7 +41,7 @@ const Home: React.FC = () => {
     token: "12345",
   });
   const [syncMessage, setSyncMessage] = useState("");
-
+  const [isOpen, setIsOpen] = useState(false);
   const [showBackAlert, setShowBackAlert] = useState(false);
 
   document.addEventListener("ionBackButton", (ev: any) => {
@@ -96,6 +96,7 @@ const Home: React.FC = () => {
         store.create().then(() => {
           store.get("books").then((value: Book[]) => {
             if (value) {
+              setIsOpen(true);
               setBooks(value);
               setFilteredBooks(value);
             }
@@ -217,6 +218,9 @@ const Home: React.FC = () => {
                   <IonItem>
                     <IonText>Version: V{version}</IonText>
                   </IonItem>
+                  <IonItem>
+                    <IonText>Books: {books.length}</IonText>
+                  </IonItem>
                 </IonContent>
               </IonModal>
             </IonCol>
@@ -224,18 +228,24 @@ const Home: React.FC = () => {
         </IonGrid>
       </IonHeader>
       <IonContent fullscreen={false}>
-          <IonList>
-            {filteredBooks.map((b, i) => (
-              <IonCard key={i}>
-                <IonCardHeader>
-                  <IonCardTitle>{b.name}</IonCardTitle>
-                  <IonCardSubtitle>{b.description}</IonCardSubtitle>
-                </IonCardHeader>
+        <IonList>
+          {filteredBooks.map((b, i) => (
+            <IonCard key={i}>
+              <IonCardHeader>
+                <IonCardTitle>{b.name}</IonCardTitle>
+                <IonCardSubtitle>{b.description}</IonCardSubtitle>
+              </IonCardHeader>
 
-                <IonCardContent>{b.remarks}</IonCardContent>
-              </IonCard>
-            ))}
-          </IonList>
+              <IonCardContent>{b.remarks}</IonCardContent>
+            </IonCard>
+          ))}
+        </IonList>
+        <IonToast
+          isOpen={isOpen}
+          onDidDismiss={() => setIsOpen(false)}
+          message="Successfully synchronized books from cloud server"
+          duration={5000}
+        ></IonToast>
       </IonContent>
     </IonPage>
   );
