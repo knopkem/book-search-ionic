@@ -32,7 +32,7 @@ import { OverlayEventDetail } from "@ionic/react/dist/types/components/react-com
 import { App } from "@capacitor/app";
 
 const Home: React.FC = () => {
-  const [version] = useState("7");
+  const [version] = useState("8");
   const [books, setBooks] = useState<Book[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
 
@@ -71,7 +71,7 @@ const Home: React.FC = () => {
   useEffect(() => {
     const { url, token } = cloud;
     if (!url || !token) return;
-    console.log("fetching books from:", url);
+    console.log("fetching new books from:", url);
     fetch(url + "/books", {
       method: "GET",
       headers: {
@@ -82,11 +82,19 @@ const Home: React.FC = () => {
       .then((response) => response.json())
       .then((data) => {
         if (data) {
-          setBooks(data);
-          setFilteredBooks(data);
+          data.shift();
+          const cleanData = data.filter((curr:Book)=> curr.name !== '');
+          cleanData.sort((a: Book, b: Book) => {
+            let x = a.name.toLowerCase();
+            let y = b.name.toLowerCase();
+            if (x < y) {return -1;}
+            if (x > y) {return 1;}
+            return 0;
+          });
+          setBooks(cleanData);
+          setFilteredBooks(cleanData);
           store.create().then(() => {
-            data.shift();
-            store.set("books", data);
+            store.set("books", cleanData);
             store.set("sync", new Date().toLocaleDateString("de-DE"));
           });
         }
