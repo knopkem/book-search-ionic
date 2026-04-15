@@ -11,7 +11,7 @@ import {
   IonContent,
   IonGrid,
   IonHeader,
-  IonInput,
+  IonIcon,
   IonItem,
   IonList,
   IonModal,
@@ -22,141 +22,323 @@ import {
   IonTitle,
   IonToast,
   IonToolbar,
-} from "@ionic/react";
-import { useState, useEffect, useRef } from "react";
-import { Book } from "../book";
-import { Storage } from "@ionic/storage";
-import { IonIcon } from "@ionic/react";
-import { settings } from "ionicons/icons";
-import { OverlayEventDetail } from "@ionic/react/dist/types/components/react-component-lib/interfaces";
-import { App } from "@capacitor/app";
+} from '@ionic/react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Storage } from '@ionic/storage';
+import { Capacitor } from '@capacitor/core';
+import { GoogleSignIn } from '@capawesome/capacitor-google-sign-in';
+import { App } from '@capacitor/app';
+import { settings } from 'ionicons/icons';
+
+import { Book } from '../book';
+
+type AuthenticatedUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+};
+
+type AuthSession = {
+  rawToken: string;
+  user: AuthenticatedUser;
+  deviceName: string;
+};
+
+type GoogleAuthConfig = {
+  clientId: string;
+  enabled: boolean;
+};
+
+type IonBackButtonEvent = CustomEvent<{
+  register: (priority: number, handler: () => void) => void;
+}>;
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
+const STORAGE_KEYS = {
+  authSession: 'auth-session',
+  books: 'books',
+  syncMessage: 'sync-message',
+} as const;
+const APP_VERSION = '9';
 
 const Home: React.FC = () => {
-  const [version] = useState("8");
+  const store = useMemo(() => new Storage(), []);
+
   const [books, setBooks] = useState<Book[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
-
-  const [cloud, setCloud] = useState({
-    url: "http://localhost:3000",
-    token: "12345",
-  });
-  const [syncMessage, setSyncMessage] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [syncMessage, setSyncMessage] = useState('');
+  const [toastMessage, setToastMessage] = useState('');
+  const [isToastOpen, setIsToastOpen] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [showBackAlert, setShowBackAlert] = useState(false);
 
-  document.addEventListener("ionBackButton", (ev: any) => {
-    ev.detail.register(-1, () => {
-      setShowBackAlert(true);
-    });
-  });
-
-  const modal = useRef<HTMLIonModalElement>(null);
-  const input = useRef<HTMLIonInputElement>(null);
-  const input2 = useRef<HTMLIonInputElement>(null);
-  const store = new Storage();
-
   useEffect(() => {
-    console.log("fetching cloud credentials from local storage");
-    store.create().then(() => {
-      store.get("cloud").then((value) => {
-        if (!value) return;
-        setCloud(value);
+    const handleBackButton = (event: Event) => {
+      const backButtonEvent = event as IonBackButtonEvent;
+      backButtonEvent.detail.register(-1, () => {
+        setShowBackAlert(true);
       });
-      store.get("sync").then((value) => {
-        setSyncMessage(`last synchronization: ${value}`);
-      });
-    });
+    };
+
+    document.addEventListener('ionBackButton', handleBackButton);
+
+    return () => {
+      document.removeEventListener('ionBackButton', handleBackButton);
+    };
   }, []);
 
   useEffect(() => {
-    const { url, token } = cloud;
-    if (!url || !token) return;
-    console.log("fetching new books from:", url);
-    fetch(url + "/books", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data) {
-          data.shift();
-          const cleanData = data.filter((curr:Book)=> curr.name !== '');
-          cleanData.sort((a: Book, b: Book) => {
-            let x = a.name.toLowerCase();
-            let y = b.name.toLowerCase();
-            if (x < y) {return -1;}
-            if (x > y) {return 1;}
-            return 0;
-          });
-          setBooks(cleanData);
-          setFilteredBooks(cleanData);
-          store.create().then(() => {
-            store.set("books", cleanData);
-            store.set("sync", new Date().toLocaleDateString("de-DE"));
-          });
-        }
-      })
-      .catch((e) => {
-        console.log("fetching books from local storage");
-        store.create().then(() => {
-          store.get("books").then((value: Book[]) => {
-            if (value) {
-              setIsOpen(true);
-              setBooks(value);
-              setFilteredBooks(value);
-            }
-          });
-        });
-      });
-  }, [setBooks, setFilteredBooks, cloud, setSyncMessage]);
+    let isCancelled = false;
 
-  const handleInput = (ev: Event) => {
-    let query = "";
-    const target = ev.target as HTMLIonSearchbarElement;
-    if (target) query = target.value!.toLowerCase();
-    const updatedBooks = books.filter(
-      (d) =>
-        d.description.toLowerCase().includes(query) ||
-        d.name.toLowerCase().includes(query)
-    );
-    setFilteredBooks(updatedBooks);
+    const initialize = async () => {
+      await store.create();
+
+      const [storedSession, storedBooks, storedSyncMessage] = await Promise.all([
+        store.get(STORAGE_KEYS.authSession) as Promise<AuthSession | null>,
+        store.get(STORAGE_KEYS.books) as Promise<Book[] | null>,
+        store.get(STORAGE_KEYS.syncMessage) as Promise<string | null>,
+      ]);
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (storedSession) {
+        setAuthSession(storedSession);
+      }
+
+      if (storedBooks) {
+        const nextBooks = normalizeBooks(storedBooks);
+        setBooks(nextBooks);
+      }
+
+      if (storedSyncMessage) {
+        setSyncMessage(storedSyncMessage);
+      }
+
+      setIsInitializing(false);
+    };
+
+    void initialize();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [store]);
+
+  useEffect(() => {
+    setFilteredBooks(filterBooks(books, searchQuery));
+  }, [books, searchQuery]);
+
+  const handleSearchInput = (event: Event) => {
+    const target = event.target as HTMLIonSearchbarElement;
+    setSearchQuery((target.value ?? '').toLowerCase());
   };
 
-  function confirm() {
-    modal.current?.dismiss(
-      { url: input.current?.value, token: input2.current?.value },
-      "confirm"
-    );
-  }
+  const presentToast = useCallback((message: string) => {
+    setToastMessage(message);
+    setIsToastOpen(true);
+  }, []);
 
-  function onWillDismiss(ev: CustomEvent<OverlayEventDetail>) {
-    if (ev.detail.role === "confirm") {
-      const store = new Storage();
-      store.create().then(() => {
-        store.set("cloud", ev.detail.data);
-        setCloud(ev.detail.data);
-      });
+  const applyBooks = useCallback((nextBooks: Book[]) => {
+    setBooks(nextBooks);
+  }, []);
+
+  const persistBooks = useCallback(async (nextBooks: Book[], nextSyncMessage: string) => {
+    await Promise.all([
+      store.set(STORAGE_KEYS.books, nextBooks),
+      store.set(STORAGE_KEYS.syncMessage, nextSyncMessage),
+    ]);
+    applyBooks(nextBooks);
+    setSyncMessage(nextSyncMessage);
+  }, [applyBooks, store]);
+
+  const clearStoredSession = useCallback(async (options: { clearBooks: boolean }) => {
+    await store.remove(STORAGE_KEYS.authSession);
+
+    if (options.clearBooks) {
+      await Promise.all([
+        store.remove(STORAGE_KEYS.books),
+        store.remove(STORAGE_KEYS.syncMessage),
+      ]);
+      applyBooks([]);
+      setSyncMessage('');
+      setSearchQuery('');
     }
-  }
+
+    setAuthSession(null);
+  }, [applyBooks, store]);
+
+  const syncBooks = useCallback(async (
+    rawToken: string,
+    options: {
+      showSuccessToast: boolean;
+    },
+  ) => {
+    setIsSyncing(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/books`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${rawToken}`,
+        },
+      });
+
+      if (response.status === 401) {
+        await clearStoredSession({ clearBooks: false });
+        throw new Error('Your mobile session expired. Please sign in again.');
+      }
+
+      if (!response.ok) {
+        throw new Error(`Synchronization failed (${response.status}).`);
+      }
+
+      const data = (await response.json()) as Book[];
+      const nextBooks = normalizeBooks(data);
+      const nextSyncMessage = `last synchronization: ${new Date().toLocaleDateString('de-DE')}`;
+
+      await persistBooks(nextBooks, nextSyncMessage);
+
+      if (options.showSuccessToast) {
+        presentToast('Books synchronized successfully.');
+      }
+    } catch (error) {
+      const cachedBooks = (await store.get(STORAGE_KEYS.books)) as Book[] | null;
+
+      if (cachedBooks) {
+        applyBooks(normalizeBooks(cachedBooks));
+      }
+
+      presentToast(getErrorMessage(error));
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [applyBooks, clearStoredSession, persistBooks, presentToast, store]);
+
+  useEffect(() => {
+    if (isInitializing || !authSession) {
+      return;
+    }
+
+    void syncBooks(authSession.rawToken, { showSuccessToast: false });
+  }, [authSession, isInitializing, syncBooks]);
+
+  const signIn = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      presentToast('Google sign-in is only available in the native Android app.');
+      return;
+    }
+
+    setIsSigningIn(true);
+
+    try {
+      const configResponse = await fetch(`${API_BASE_URL}/api/auth/google/config`);
+
+      if (!configResponse.ok) {
+        throw new Error(`Unable to load Google sign-in configuration (${configResponse.status}).`);
+      }
+
+      const googleConfig = (await configResponse.json()) as GoogleAuthConfig;
+
+      if (!googleConfig.enabled || !googleConfig.clientId) {
+        throw new Error('Google sign-in is not configured on the server.');
+      }
+
+      await GoogleSignIn.initialize({
+        clientId: googleConfig.clientId,
+      });
+
+      const googleResult = await GoogleSignIn.signIn();
+
+      if (!googleResult.idToken) {
+        throw new Error('Google sign-in did not return an ID token.');
+      }
+
+      const deviceName = getDeviceName();
+      const response = await fetch(`${API_BASE_URL}/api/auth/google/mobile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          credential: googleResult.idToken,
+          deviceName,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+      }
+
+      const nextSession = {
+        ...(await response.json() as Omit<AuthSession, 'deviceName'>),
+        deviceName,
+      };
+
+      await store.set(STORAGE_KEYS.authSession, nextSession);
+      setAuthSession(nextSession);
+      setIsSettingsOpen(false);
+      await syncBooks(nextSession.rawToken, { showSuccessToast: true });
+    } catch (error) {
+      presentToast(getErrorMessage(error));
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const signOut = async () => {
+    if (!authSession) {
+      return;
+    }
+
+    setIsSigningOut(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/mobile/logout`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authSession.rawToken}`,
+        },
+      });
+
+      if (!response.ok && response.status !== 401) {
+        throw new Error(await readErrorMessage(response));
+      }
+
+      await GoogleSignIn.signOut();
+      await clearStoredSession({ clearBooks: true });
+      setIsSettingsOpen(false);
+      presentToast('Signed out successfully.');
+    } catch (error) {
+      presentToast(getErrorMessage(error));
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   return (
     <IonPage>
       <IonAlert
         isOpen={showBackAlert}
-        header={"Please Confirm!"}
-        message={"Do you want to exit the app?"}
+        header="Please Confirm!"
+        message="Do you want to exit the app?"
         buttons={[
           {
-            text: "No",
-            role: "cancel",
-            cssClass: "secondary",
-            handler: () => {},
+            text: 'No',
+            role: 'cancel',
+            cssClass: 'secondary',
           },
           {
-            text: "Yes",
+            text: 'Yes',
             handler: () => {
               App.exitApp();
             },
@@ -170,93 +352,166 @@ const Home: React.FC = () => {
             <IonCol>
               <IonToolbar>
                 <IonSearchbar
-                  show-clear-button="focus"
-                  onIonInput={(ev) => handleInput(ev)}
-                ></IonSearchbar>
+                  showClearButton="focus"
+                  value={searchQuery}
+                  onIonInput={handleSearchInput}
+                />
               </IonToolbar>
             </IonCol>
             <IonCol size="auto">
-              <IonButton fill="clear" id="open-modal" expand="block">
-                <IonIcon icon={settings} size="large" color="primary"></IonIcon>
+              <IonButton fill="clear" expand="block" onClick={() => setIsSettingsOpen(true)}>
+                <IonIcon icon={settings} size="large" color="primary" />
               </IonButton>
-              <IonModal
-                ref={modal}
-                trigger="open-modal"
-                onWillDismiss={(ev) => onWillDismiss(ev)}
-              >
-                <IonHeader>
-                  <IonToolbar>
-                    <IonButtons slot="start">
-                      <IonButton onClick={() => modal.current?.dismiss()}>
-                        Cancel
-                      </IonButton>
-                    </IonButtons>
-                    <IonTitle>Settings</IonTitle>
-                    <IonButtons slot="end">
-                      <IonButton strong={true} onClick={() => confirm()}>
-                        Confirm
-                      </IonButton>
-                    </IonButtons>
-                  </IonToolbar>
-                </IonHeader>
-                <IonContent className="ion-padding">
-                  <IonItem>
-                    <IonInput
-                      label="Enter the url to cloud server"
-                      labelPlacement="stacked"
-                      ref={input}
-                      type="text"
-                      placeholder="Cloud URL"
-                      value={cloud.url}
-                    />
-                  </IonItem>
-                  <IonItem>
-                    <IonInput
-                      label="Enter the access token"
-                      labelPlacement="stacked"
-                      ref={input2}
-                      type="text"
-                      placeholder="token"
-                      value={cloud.token}
-                    />
-                  </IonItem>
-                  <IonItem>
-                    <IonText>{syncMessage}</IonText>
-                  </IonItem>
-                  <IonItem>
-                    <IonText>Version: V{version}</IonText>
-                  </IonItem>
-                  <IonItem>
-                    <IonText>Books: {books.length}</IonText>
-                  </IonItem>
-                </IonContent>
-              </IonModal>
             </IonCol>
           </IonRow>
         </IonGrid>
       </IonHeader>
       <IonContent fullscreen={false}>
-        <IonList>
-          {filteredBooks.map((b, i) => (
-            <IonCard key={i}>
-              <IonCardHeader>
-                <IonCardTitle>{b.name}</IonCardTitle>
-                <IonCardSubtitle>{b.description}</IonCardSubtitle>
-              </IonCardHeader>
+        <IonModal isOpen={isSettingsOpen} onDidDismiss={() => setIsSettingsOpen(false)}>
+          <IonHeader>
+            <IonToolbar>
+              <IonButtons slot="start">
+                <IonButton onClick={() => setIsSettingsOpen(false)}>Close</IonButton>
+              </IonButtons>
+              <IonTitle>Settings</IonTitle>
+              <IonButtons slot="end">
+                {authSession ? (
+                  <IonButton
+                    strong
+                    onClick={() => void syncBooks(authSession.rawToken, { showSuccessToast: true })}
+                    disabled={isSyncing}
+                  >
+                    Sync now
+                  </IonButton>
+                ) : null}
+              </IonButtons>
+            </IonToolbar>
+          </IonHeader>
+          <IonContent className="ion-padding">
+            <IonItem>
+              <IonText>
+                <strong>Server:</strong> {API_BASE_URL}
+              </IonText>
+            </IonItem>
+            <IonItem>
+              <IonText>
+                <strong>Status:</strong>{' '}
+                {authSession ? `Signed in as ${authSession.user.displayName}` : 'Not signed in'}
+              </IonText>
+            </IonItem>
+            {authSession ? (
+              <>
+                <IonItem>
+                  <IonText>
+                    <strong>Email:</strong> {authSession.user.email}
+                  </IonText>
+                </IonItem>
+                <IonItem>
+                  <IonText>
+                    <strong>Device:</strong> {authSession.deviceName}
+                  </IonText>
+                </IonItem>
+              </>
+            ) : null}
+            <IonItem>
+              <IonText>
+                <strong>Last sync:</strong> {syncMessage || 'Not synchronized yet'}
+              </IonText>
+            </IonItem>
+            <IonItem>
+              <IonText>
+                <strong>Books:</strong> {books.length}
+              </IonText>
+            </IonItem>
+            <IonItem>
+              <IonText>
+                <strong>Version:</strong> V{APP_VERSION}
+              </IonText>
+            </IonItem>
+            <div className="ion-padding-top">
+              {authSession ? (
+                <IonButton expand="block" color="medium" onClick={() => void signOut()} disabled={isSigningOut}>
+                  {isSigningOut ? 'Signing out...' : 'Sign out'}
+                </IonButton>
+              ) : (
+                <IonButton expand="block" onClick={() => void signIn()} disabled={isSigningIn}>
+                  {isSigningIn ? 'Signing in...' : 'Sign in with Google'}
+                </IonButton>
+              )}
+            </div>
+          </IonContent>
+        </IonModal>
 
-              <IonCardContent>{b.remarks}</IonCardContent>
+        {!authSession && !books.length && !isInitializing ? (
+          <IonCard>
+            <IonCardHeader>
+              <IonCardTitle>Sign in to synchronize your books</IonCardTitle>
+              <IonCardSubtitle>Offline books appear here after the first successful sync.</IonCardSubtitle>
+            </IonCardHeader>
+          </IonCard>
+        ) : null}
+
+        <IonList>
+          {filteredBooks.map((book) => (
+            <IonCard key={`${book.name}-${book.description}-${book.remarks}`}>
+              <IonCardHeader>
+                <IonCardTitle>{book.name}</IonCardTitle>
+                <IonCardSubtitle>{book.description}</IonCardSubtitle>
+              </IonCardHeader>
+              <IonCardContent>{book.remarks}</IonCardContent>
             </IonCard>
           ))}
         </IonList>
         <IonToast
-          isOpen={isOpen}
-          onDidDismiss={() => setIsOpen(false)}
-          message="Successfully synchronized books from cloud server"
+          isOpen={isToastOpen}
+          onDidDismiss={() => setIsToastOpen(false)}
+          message={toastMessage}
           duration={5000}
-        ></IonToast>
+        />
       </IonContent>
     </IonPage>
   );
 };
+
+function normalizeBooks(books: Book[]) {
+  return [...books]
+    .filter((book) => book.name.trim() !== '')
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+}
+
+function filterBooks(books: Book[], query: string) {
+  if (!query) {
+    return books;
+  }
+
+  return books.filter((book) => {
+    const value = query.toLowerCase();
+    return (
+      book.name.toLowerCase().includes(value) ||
+      book.description.toLowerCase().includes(value) ||
+      book.remarks.toLowerCase().includes(value)
+    );
+  });
+}
+
+async function readErrorMessage(response: Response) {
+  const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+  return payload?.message ?? `Request failed (${response.status}).`;
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'An unexpected error occurred.';
+}
+
+function getDeviceName() {
+  switch (Capacitor.getPlatform()) {
+    case 'android':
+      return 'Android app';
+    case 'ios':
+      return 'iOS app';
+    default:
+      return 'Mobile app';
+  }
+}
 
 export default Home;

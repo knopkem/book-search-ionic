@@ -1,4 +1,4 @@
-package io.ionic.starter;
+package com.pacsnode.booksearch;
 
 import com.getcapacitor.BridgeActivity;
 
