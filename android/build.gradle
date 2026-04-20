@@ -24,6 +24,30 @@ allprojects {
     }
 }
 
+subprojects { project ->
+    project.plugins.withId('com.android.application') {
+        project.afterEvaluate {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+    }
+
+    project.plugins.withId('com.android.library') {
+        project.afterEvaluate {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
