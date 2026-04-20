@@ -493,10 +493,6 @@ async function readErrorMessage(response: Response) {
 }
 
 function getErrorMessage(error: unknown) {
-  if (error instanceof TypeError && error.message === 'Failed to fetch') {
-    return `Unable to reach ${API_BASE_URL}. Native Android builds require an HTTPS API URL.`;
-  }
-
   return error instanceof Error ? error.message : 'An unexpected error occurred.';
 }
 
