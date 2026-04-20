@@ -53,6 +53,9 @@ VITE_API_BASE_URL=http://localhost:3000
 
 For local development this should point at a running `book-search-server` instance.
 
+For Android device builds, use an `https://` API URL. Android WebView blocks cleartext `http://`
+requests from the packaged app, which surfaces as `Failed to fetch`.
+
 ## Google Sign-In setup
 
 This app expects Google Sign-In to be configured in Google Cloud for Android.
@@ -61,7 +64,8 @@ Important pieces:
 
 - Android package ID: `com.pacsnode.booksearch`
 - matching SHA certificate fingerprints for your debug/release app
-- the server must also be configured with the correct `GOOGLE_CLIENT_ID`
+- the server `GOOGLE_CLIENT_ID` must be the Google **web** client ID used to mint the ID token
+- the Android client is still needed in Google Cloud so the package ID and SHA fingerprint match the app build
 
 Without that setup, sign-in will fail even if the app builds correctly.
 

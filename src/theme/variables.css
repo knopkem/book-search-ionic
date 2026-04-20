@@ -240,3 +240,32 @@ html {
   https://ionicframework.com/docs/layout/dynamic-font-scaling */
   --ion-dynamic-font: var(--ion-default-dynamic-font);
 }
+
+.home-toolbar {
+  padding-top: var(--ion-safe-area-top, 0px);
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --min-height: auto;
+}
+
+.home-toolbar__content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.home-searchbar {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+
+.home-searchbar .searchbar-input-container {
+  width: 100%;
+}
+
+.home-settings-button {
+  flex-shrink: 0;
+  margin: 0;
+}

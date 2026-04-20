@@ -7,16 +7,13 @@ import {
   IonCardHeader,
   IonCardSubtitle,
   IonCardTitle,
-  IonCol,
   IonContent,
-  IonGrid,
   IonHeader,
   IonIcon,
   IonItem,
   IonList,
   IonModal,
   IonPage,
-  IonRow,
   IonSearchbar,
   IonText,
   IonTitle,
@@ -54,7 +51,8 @@ type IonBackButtonEvent = CustomEvent<{
   register: (priority: number, handler: () => void) => void;
 }>;
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
+const DEFAULT_API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 const STORAGE_KEYS = {
   authSession: 'auth-session',
   books: 'books',
@@ -346,25 +344,20 @@ const Home: React.FC = () => {
         ]}
         onDidDismiss={() => setShowBackAlert(false)}
       />
-      <IonHeader>
-        <IonGrid>
-          <IonRow>
-            <IonCol>
-              <IonToolbar>
-                <IonSearchbar
-                  showClearButton="focus"
-                  value={searchQuery}
-                  onIonInput={handleSearchInput}
-                />
-              </IonToolbar>
-            </IonCol>
-            <IonCol size="auto">
-              <IonButton fill="clear" expand="block" onClick={() => setIsSettingsOpen(true)}>
-                <IonIcon icon={settings} size="large" color="primary" />
-              </IonButton>
-            </IonCol>
-          </IonRow>
-        </IonGrid>
+      <IonHeader className="home-header">
+        <IonToolbar className="home-toolbar">
+          <div className="home-toolbar__content">
+            <IonSearchbar
+              className="home-searchbar"
+              showClearButton="focus"
+              value={searchQuery}
+              onIonInput={handleSearchInput}
+            />
+            <IonButton className="home-settings-button" fill="clear" onClick={() => setIsSettingsOpen(true)}>
+              <IonIcon icon={settings} size="large" color="primary" />
+            </IonButton>
+          </div>
+        </IonToolbar>
       </IonHeader>
       <IonContent fullscreen={false}>
         <IonModal isOpen={isSettingsOpen} onDidDismiss={() => setIsSettingsOpen(false)}>
@@ -500,6 +493,10 @@ async function readErrorMessage(response: Response) {
 }
 
 function getErrorMessage(error: unknown) {
+  if (error instanceof TypeError && error.message === 'Failed to fetch') {
+    return `Unable to reach ${API_BASE_URL}. Native Android builds require an HTTPS API URL.`;
+  }
+
   return error instanceof Error ? error.message : 'An unexpected error occurred.';
 }
 
@@ -512,6 +509,31 @@ function getDeviceName() {
     default:
       return 'Mobile app';
   }
+}
+
+function resolveApiBaseUrl(configuredBaseUrl?: string) {
+  const trimmedBaseUrl = configuredBaseUrl?.trim();
+
+  if (!trimmedBaseUrl) {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  if (!Capacitor.isNativePlatform() || !URL.canParse(trimmedBaseUrl)) {
+    return trimTrailingSlash(trimmedBaseUrl);
+  }
+
+  const baseUrl = new URL(trimmedBaseUrl);
+  const isLocalAddress = ['localhost', '127.0.0.1', '10.0.2.2'].includes(baseUrl.hostname);
+
+  if (baseUrl.protocol === 'http:' && !isLocalAddress) {
+    baseUrl.protocol = 'https:';
+  }
+
+  return trimTrailingSlash(baseUrl.toString());
+}
+
+function trimTrailingSlash(value: string) {
+  return value.endsWith('/') ? value.slice(0, -1) : value;
 }
 
 export default Home;
